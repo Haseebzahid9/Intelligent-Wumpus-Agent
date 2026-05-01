@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wumpus Logic Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* SaaS Dark Palette (Zinc/Slate) */
+  --bg: #09090b;
+  --sidebar-bg: #09090b;
+  --card: #18181b;
+  --border: #27272a;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --visited: #18181b;
+  --safe-bg: rgba(34, 197, 94, 0.1);
+  --safe-border: rgba(34, 197, 94, 0.4);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- TOP NAVBAR --- */
+header {
+  height: 60px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: #18181b;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #3f3f46;
+}
+
+.status-dot.active {
+  background: var(--success);
+  box-shadow: 0 0 10px var(--success);
+}
+
+/* --- MAIN LAYOUT --- */
+.main-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr 300px;
+  gap: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebar-right {
+  border-right: none;
+  border-left: 1px solid var(--border);
+  background: #09090b;
+}
+
+.content-area {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  background-image: radial-gradient(#27272a 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* --- COMPONENTS --- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  width: 100%;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+}
+
+.config-group { margin-bottom: 12px; }
+.config-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+
+input[type="number"], input[type="range"] {
+  width: 100%;
+  padding: 8px;
+  background: #09090b;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 8px;
+}
+
+.btn-primary { background: var(--text-primary); color: var(--bg); }
+.btn-primary:hover { background: #e4e4e7; }
+.btn-success { background: #14532d; color: #4ade80; border: 1px solid #166534; }
+.btn-danger { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* --- GRID --- */
+.grid-container {
+  position: relative;
+  background: var(--card);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+#grid {
+  display: grid;
+  gap: 2px;
+  background: var(--border);
+}
+
+.cell {
+  background: #09090b;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.cell.visited { background: #18181b; }
+.cell.safe { background: var(--safe-bg); box-shadow: inset 0 0 0 1px var(--safe-border); }
+.cell.agent { border: 2px solid var(--accent); background: #1e3a8a; }
+.cell.pit-confirmed { background: #450a0a; box-shadow: inset 0 0 0 1px var(--danger); }
+
+.cell-coord {
+  position: absolute;
+  top: 4px; left: 4px;
+  font-size: 8px;
+  color: #52525b;
+}
+
+/* --- METRICS --- */
+.metrics-grid {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.metric-card {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.metric-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+}
+
+.metric-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* --- LOGS --- */
+.log-container, .inference-steps, .kb-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 180px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+}
+
+.log-entry { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.log-entry.info { color: var(--accent); }
+.log-entry.danger { color: var(--danger); }
+
+.percept-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #18181b;
+  border: 1px solid transparent;
+  color: #3f3f46;
+}
+.percept-item.active { color: var(--text-primary); border-color: var(--border); background: #27272a; }
+
+.game-over-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.9);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+.game-over-overlay.show { display: flex; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Wumpus Intelligence <span style="color:#3f3f46; font-weight: 300;">/</span> Analytics</h1>
+  <div class="status-badge">
+    <div id="status-dot" class="status-dot"></div>
+    <span id="status-text">OFFLINE</span>
+  </div>
+</header>
+
+<div class="main-layout">
+  <aside class="sidebar">
+    <div>
+      <h2 class="section-title">Control Panel</h2>
+      <div class="config-group">
+        <label class="config-label">Grid Size (N×N)</label>
+        <div style="display:flex; gap:6px;">
+          <input type="number" id="rows" value="4" min="3" max="8">
+          <input type="number" id="cols" value="4" min="3" max="8">
+        </div>
+      </div>
+      <div class="config-group">
+        <label class="config-label">Clock Speed</label>
+        <input type="range" id="speed" min="200" max="2000" value="800">
+      </div>
+      <button class="btn btn-primary" id="init-btn" onclick="initGame()">Initialize</button>
+      <button class="btn btn-success" id="run-btn" onclick="startAgent()" disabled>Start Execution</button>
+      <button class="btn btn-danger" id="stop-btn" onclick="stopAgent()" disabled>Emergency Stop</button>
+    </div>
+
+    <div>
+      <h2 class="section-title">Telemetry</h2>
+      <div style="display:grid; gap:8px;">
+        <div class="percept-item" id="percept-breeze">💨 Breeze Detected</div>
+        <div class="percept-item" id="percept-stench">💀 Stench Detected</div>
+        <div class="percept-item" id="percept-glitter">✨ Glitter Detected</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="content-area">
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-value" id="m-steps">0</span>
+        <span class="metric-label">Inference Count</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value" id="m-moves">0</span>
+        <span class="metric-label">Trajectory Steps</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value" id="m-kb">0</span>
+        <span class="metric-label">Active Clauses</span>
+      </div>
+    </div>
+
+    <div class="grid-container">
+      <div id="grid"></div>
+      <div class="game-over-overlay" id="game-over">
+        <h2 id="game-over-title" style="font-size:24px; margin-bottom:8px;">Terminated</h2>
+        <p id="game-over-msg" style="color:var(--text-secondary); font-size:13px; margin-bottom:20px;"></p>
+        <button class="btn btn-primary" style="width:auto; padding: 10px 24px;" onclick="initGame()">Reset System</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="sidebar sidebar-right">
+    <div class="card" style="margin-bottom:16px;">
+      <h2 class="section-title">Runtime Log</h2>
+      <div class="log-container" id="log"></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <h2 class="section-title">Logical Steps</h2>
+      <div class="inference-steps" id="inference-steps"></div>
+    </div>
+    <div class="card">
+      <h2 class="section-title">KB Structure</h2>
+      <div class="kb-display" id="kb-display"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/** 
+ *  LOGIC PRESERVED FROM index (1).html 
+ *  IDs and function calls remain identical to ensure compatibility[cite: 1]
+ */
+
+let ROWS = 4, COLS = 4;
+let grid = [], agent = {r:0, c:0}, gold = null, wumpus = null, pits = [];
+let visited = new Set(), safeSet = new Set(), pitConfirmed = new Set(), wumpusConfirmed = null;
+let KB = [], cnfClauses = [];
+let inferenceSteps = 0, moveCount = 0;
+let agentAlive = true, goldFound = false;
+let agentTimer = null;
+let percepts = {breeze:false, stench:false, glitter:false};
+let frontier = [];
+
+function cellKey(r,c) { return `${r},${c}`; }
+function inBounds(r,c) { return r>=0 && r<ROWS && c>=0 && c<COLS; }
+
+function initGame() {
+  ROWS = parseInt(document.getElementById('rows').value)||4;
+  COLS = parseInt(document.getElementById('cols').value)||4;
+  stopAgent();
+  agentAlive = true; goldFound = false;
+  visited = new Set(); safeSet = new Set();
+  pitConfirmed = new Set(); wumpusConfirmed = null;
+  KB = []; cnfClauses = []; frontier = [];
+  inferenceSteps = 0; moveCount = 0;
+
+  document.getElementById('game-over').classList.remove('show');
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+
+  placeHazards();
+  safeSet.add(cellKey(0,0));
+  visited.add(cellKey(0,0));
+
+  agent = {r:0, c:0};
+  updatePercepts(0,0);
+  tellKB(0,0);
+  buildFrontier();
+  renderGrid();
+  updateMetrics();
+  clearLog();
+  log('System online. World ' + ROWS + '×' + COLS, 'info');
+  document.getElementById('status-text').textContent = 'INITIALIZED';
+  document.getElementById('status-dot').className = 'status-dot';
+}
+
+function placeHazards() {
+  let cells = [];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(!(r===0&&c===0)) cells.push([r,c]);
+  shuffle(cells);
+  wumpus = cells[0];
+  pits = [];
+  let numPits = Math.max(1, Math.floor(ROWS*COLS*0.2));
+  for(let i=1;i<cells.length&&pits.length<numPits;i++) {
+    let [r,c]=cells[i];
+    if(!(Math.abs(r)+Math.abs(c)<=1)) pits.push([r,c]);
+  }
+  gold = cells[Math.min(cells.length-1, numPits+2)];
+}
+
+function shuffle(a) { for(let i=a.length-1;i>0;i--){ let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]; } }
+
+function getAdjacentCells(r,c) {
+  return [[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc])=>[r+dr,c+dc]).filter(([nr,nc])=>inBounds(nr,nc));
+}
+
+function updatePercepts(r,c) {
+  percepts.breeze = pits.some(([pr,pc])=>getAdjacentCells(r,c).some(([ar,ac])=>ar===pr&&ac===pc));
+  percepts.stench = getAdjacentCells(r,c).some(([ar,ac])=>ar===wumpus[0]&&ac===wumpus[1]);
+  percepts.glitter = gold && r===gold[0] && c===gold[1];
+
+  document.getElementById('percept-breeze').classList.toggle('active', percepts.breeze);
+  document.getElementById('percept-stench').classList.toggle('active', percepts.stench);
+  document.getElementById('percept-glitter').classList.toggle('active', percepts.glitter);
+}
+
+function tellKB(r,c) {
+  let key = cellKey(r,c);
+  addClause([`Safe_${key}`]);
+  if(percepts.breeze) {
+    let adj = getAdjacentCells(r,c).map(([ar,ac])=>`P_${cellKey(ar,ac)}`);
+    if(adj.length>0) addClause(adj);
+  } else {
+    getAdjacentCells(r,c).forEach(([ar,ac])=>{
+      addClause([`~P_${cellKey(ar,ac)}`]);
+      safeSet.add(cellKey(ar,ac));
+    });
+  }
+  if(percepts.stench) {
+    let adj = getAdjacentCells(r,c).map(([ar,ac])=>`W_${cellKey(ar,ac)}`);
+    if(adj.length>0) addClause(adj);
+  } else {
+    getAdjacentCells(r,c).forEach(([ar,ac])=>{
+      addClause([`~W_${cellKey(ar,ac)}`]);
+    });
+  }
+  runInference();
+  updateKBDisplay();
+}
+
+function addClause(lits) {
+  let key = lits.sort().join('|');
+  if(!cnfClauses.find(c=>c.join('|')===key)) {
+    cnfClauses.push([...lits]);
+    KB.push(lits.map(l=>l).join(' ∨ '));
+  }
+}
+
+function resolutionRefutation(query) {
+  inferenceSteps++;
+  document.getElementById('m-steps').textContent = inferenceSteps;
+  let negQuery = query.startsWith('~') ? query.slice(1) : '~'+query;
+  let clauses = cnfClauses.map(c=>[...c]);
+  clauses.push([negQuery]); 
+  let iter = 0;
+  let newClauseAdded = true;
+  while(newClauseAdded && iter < 100) {
+    newClauseAdded = false; iter++;
+    let newClauses = [];
+    for(let i=0;i<clauses.length;i++) {
+      for(let j=i+1;j<clauses.length;j++) {
+        let resolvents = resolve(clauses[i], clauses[j]);
+        for(let r of resolvents) {
+          if(r.length===0) {
+            addInferenceStep(`Proved ${query} via contradiction`, true);
+            return true;
+          }
+          let rKey = r.sort().join('|');
+          if(!clauses.find(c=>c.sort().join('|')===rKey)) {
+            newClauses.push(r);
+            newClauseAdded = true;
+          }
+        }
+      }
+    }
+    clauses = clauses.concat(newClauses);
+  }
+  return false;
+}
+
+function resolve(c1, c2) {
+  let results = [];
+  for(let lit of c1) {
+    let neg = lit.startsWith('~') ? lit.slice(1) : '~'+lit;
+    if(c2.includes(neg)) {
+      let resolvent = [...c1.filter(l=>l!==lit), ...c2.filter(l=>l!==neg)];
+      let unique = [...new Set(resolvent)];
+      let tautology = unique.some(l => unique.includes(l.startsWith('~') ? l.slice(1) : '~'+l));
+      if(!tautology) results.push(unique);
+    }
+  }
+  return results;
+}
+
+function isSafeByKB(r,c) {
+  let key = cellKey(r,c);
+  if(safeSet.has(key)) return true;
+  if(resolutionRefutation(`~P_${key}`) && resolutionRefutation(`~W_${key}`)) {
+    safeSet.add(key); return true;
+  }
+  return false;
+}
+
+function runInference() {
+  for(let [r,c] of frontier) {
+    let key = cellKey(r,c);
+    if(!safeSet.has(key) && !pitConfirmed.has(key)) isSafeByKB(r,c);
+  }
+  for(let [r,c] of frontier) {
+    let key = cellKey(r,c);
+    if(!pitConfirmed.has(key) && !safeSet.has(key) && resolutionRefutation(`P_${key}`)) pitConfirmed.add(key);
+  }
+}
+
+function addInferenceStep(text, highlight) {
+  let el = document.getElementById('inference-steps');
+  let div = document.createElement('div');
+  div.style.marginBottom = '4px';
+  if(highlight) div.style.color = '#4ade80';
+  div.textContent = `• ${text}`;
+  el.prepend(div);
+  if(el.children.length > 15) el.lastChild.remove();
+}
+
+function buildFrontier() {
+  frontier = [];
+  for(let r=0;r<ROWS;r++) {
+    for(let c=0;c<COLS;c++) {
+      let key = cellKey(r,c);
+      if(!visited.has(key) && getAdjacentCells(r,c).some(([ar,ac])=>visited.has(cellKey(ar,ac)))) frontier.push([r,c]);
+    }
+  }
+}
+
+function getNextMove() {
+  let safeMoves = frontier.filter(([r,c])=>safeSet.has(cellKey(r,c)));
+  if(safeMoves.length>0) return {r:safeMoves[0][0], c:safeMoves[0][1]};
+  let risky = frontier.filter(([r,c])=>!pitConfirmed.has(cellKey(r,c)));
+  return risky.length > 0 ? {r:risky[0][0], c:risky[0][1]} : null;
+}
+
+function startAgent() {
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+  document.getElementById('status-text').textContent = 'RUNNING';
+  document.getElementById('status-dot').className = 'status-dot active';
+  agentStep();
+}
+
+function stopAgent() {
+  if(agentTimer) clearTimeout(agentTimer);
+  agentTimer = null;
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('status-text').textContent = 'HALTED';
+  document.getElementById('status-dot').className = 'status-dot';
+}
+
+async function agentStep() {
+  if(!agentAlive || goldFound) return;
+  let speed = parseInt(document.getElementById('speed').value);
+  if(percepts.glitter) { goldFound = true; showGameOver(true, 'Target Acquired'); stopAgent(); return; }
+  if(pits.some(([pr,pc])=>pr===agent.r&&pc===agent.c)) { agentAlive = false; showGameOver(false, 'Loss: Pit'); stopAgent(); return; }
+  if(agent.r===wumpus[0]&&agent.c===wumpus[1]) { agentAlive = false; showGameOver(false, 'Loss: Predator'); stopAgent(); return; }
+  let target = getNextMove();
+  if(!target) { showGameOver(false, 'Stall: No Safe Paths'); stopAgent(); return; }
+  
+  agent.r = target.r; agent.c = target.c;
+  moveCount++;
+  visited.add(cellKey(agent.r, agent.c));
+  updatePercepts(agent.r, agent.c);
+  tellKB(agent.r, agent.c);
+  buildFrontier();
+  renderGrid();
+  updateMetrics();
+  log(`Move → [${agent.r},${agent.c}]`, 'info');
+  
+  agentTimer = setTimeout(agentStep, speed);
+}
+
+function renderGrid() {
+  let gridEl = document.getElementById('grid');
+  let size = Math.min(80, Math.floor(400/Math.max(ROWS,COLS)));
+  gridEl.style.gridTemplateColumns = `repeat(${COLS}, ${size}px)`;
+  let cells = [];
+  for(let r=ROWS-1;r>=0;r--) {
+    for(let c=0;c<COLS;c++) {
+      let key = cellKey(r,c);
+      let cls = ['cell'];
+      if(agent.r===r&&agent.c===c) cls.push('agent');
+      else if(pitConfirmed.has(key)) cls.push('pit-confirmed');
+      else if(safeSet.has(key) && visited.has(key)) cls.push('visited');
+      else if(safeSet.has(key)) cls.push('safe');
+      
+      let icon = (agent.r===r&&agent.c===c) ? '🤖' : (goldFound && gold[0]===r && gold[1]===c ? '🏆' : '');
+      cells.push(`<div class="${cls.join(' ')}" style="width:${size}px;height:${size}px"><div class="cell-coord">${r},${c}</div>${icon}</div>`);
+    }
+  }
+  gridEl.innerHTML = cells.join('');
+}
+
+function updateMetrics() {
+  document.getElementById('m-steps').textContent = inferenceSteps;
+  document.getElementById('m-moves').textContent = moveCount;
+  document.getElementById('m-kb').textContent = cnfClauses.length;
+}
+
+function updateKBDisplay() {
+  let el = document.getElementById('kb-display');
+  el.innerHTML = cnfClauses.slice(-10).map((c,i)=>`<div>${i+1}. ${c.join(' ∨ ')}</div>`).join('');
+}
+
+function showGameOver(win, msg) {
+  let overlay = document.getElementById('game-over');
+  document.getElementById('game-over-msg').textContent = msg;
+  document.getElementById('game-over-title').textContent = win ? 'Mission Success' : 'System Failure';
+  document.getElementById('game-over-title').style.color = win ? 'var(--success)' : 'var(--danger)';
+  overlay.classList.add('show');
+}
+
+function log(msg, type='') {
+  let el = document.getElementById('log');
+  let div = document.createElement('div');
+  div.className = 'log-entry ' + type;
+  div.textContent = `> ${msg}`;
+  el.prepend(div);
+}
+
+function clearLog() { document.getElementById('log').innerHTML=''; document.getElementById('inference-steps').innerHTML=''; }
+
+window.onload = () => initGame();
+</script>
+</body>
+</html>
